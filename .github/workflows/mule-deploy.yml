@@ -37,12 +37,20 @@ jobs:
         ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
         ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
       run: |
-        OUTPUT=$(mvn -s settings.xml clean package deploy -DmuleDeploy \
-        -Danypoint.username="${ANYPOINT_USERNAME}" \
-        -Danypoint.password="${ANYPOINT_PASSWORD}" \
-        -Dcloudhub.environment="Sandbox" 2>&1)
-        echo "::set-output name=deploy_output::$OUTPUT"
-      continue-on-error: true
+        # Install AnypointCLI
+        npm install -g anypoint-cli-v4
+        
+        # Login to Anypoint
+        anypoint-cli-v4 account:login --username="${ANYPOINT_USERNAME}" --password="${ANYPOINT_PASSWORD}"
+        
+        # First build the app
+        mvn clean package
+        
+        # Then deploy with CLI (which doesn't need the problematic dependencies)
+        anypoint-cli-v4 runtime-mgr:cloudhub2-application deploy \
+          ${project.artifactId} Sandbox Cloudhub-US-East-2 \
+          ./target/${project.artifactId}-${project.version}-mule-application.jar \
+          --runtime 4.4.0 --replicas 1 --cpu 0.1
       
     - name: Process Deployment Result
       run: |
