@@ -48,7 +48,7 @@ jobs:
       
     - name: Process Deployment Result
       run: |
-        if [[ "${{ steps.deploy.outputs.exit_code }}" == "0" ]]; then
+        if [[ "${{ steps.deploy.outcome }}" == "success" ]]; then
           echo "✅ Deployment successful!"
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             gh pr comment ${{ github.event.pull_request.number }} --body "✅ Deployment to CloudHub 2.0 Sandbox environment was successful."
@@ -56,7 +56,7 @@ jobs:
         else
           echo "❌ Deployment failed. Error message:"
           ERROR_MSG=$(echo "${{ steps.deploy.outputs.deploy_output }}" | grep -oP '(?<=ERROR).*' | head -1)
-          echo "$ERROR_MSG"
+          echo $ERROR_MSG
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             gh pr comment ${{ github.event.pull_request.number }} --body "❌ Deployment to CloudHub 2.0 Sandbox environment failed. Error: $ERROR_MSG"
           fi
