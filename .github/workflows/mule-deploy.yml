@@ -1,0 +1,87 @@
+name: Mulesoft CloudHub 2.0 Deployment
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for re-deployment'
+        required: true
+        default: 'Manual re-deployment'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+      
+    - name: Set up JDK 8
+      uses: actions/setup-java@v2
+      with:
+        java-version: '8'
+        distribution: 'adopt'
+        
+    - name: Capture Deployment Output
+      id: deploy
+      env:
+        ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
+        ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
+      run: |
+        set +e
+        OUTPUT=$(mvn clean package deploy -DmuleDeploy \
+        -Danypoint.username="${ANYPOINT_USERNAME}" \
+        -Danypoint.password="${ANYPOINT_PASSWORD}" \
+        -Dcloudhub.environment="Sandbox" 2>&1)
+        EXIT_CODE=$?
+        echo "::set-output name=deploy_output::$OUTPUT"
+        echo "::set-output name=exit_code::$EXIT_CODE"
+        echo "$OUTPUT"
+        exit $EXIT_CODE
+      continue-on-error: true
+      
+    - name: Process Deployment Result
+      run: |
+        if [[ "${{ steps.deploy.outputs.exit_code }}" == "0" ]]; then
+          echo "✅ Deployment successful!"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            gh pr comment ${{ github.event.pull_request.number }} --body "✅ Deployment to CloudHub 2.0 Sandbox environment was successful."
+          fi
+        else
+          echo "❌ Deployment failed. Error message:"
+          ERROR_MSG=$(echo "${{ steps.deploy.outputs.deploy_output }}" | grep -oP '(?<=ERROR).*' | head -1)
+          echo "$ERROR_MSG"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            gh pr comment ${{ github.event.pull_request.number }} --body "❌ Deployment to CloudHub 2.0 Sandbox environment failed. Error: $ERROR_MSG"
+          fi
+          exit 1
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Notify Deployment Status
+      if: always()
+      uses: actions/github-script@v4
+      with:
+        github-token: ${{secrets.GITHUB_TOKEN}}
+        script: |
+          const { owner, repo } = context.repo;
+          const ref = context.sha;
+          
+          let state = 'success';
+          let description = 'Deployment successful';
+          
+          if (${{ steps.deploy.outputs.exit_code }} != 0) {
+            state = 'failure';
+            description = 'Deployment failed';
+          }
+          
+          github.repos.createCommitStatus({
+            owner,
+            repo,
+            sha: ref,
+            state: state,
+            description: description,
+            context: 'CloudHub 2.0 Deployment'
+          });
