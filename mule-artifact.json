@@ -1,6 +1,12 @@
 {
-  "minMuleVersion": "4.8.0",
-  "javaSpecificationVersions": [
-    "17"
-  ]
+  "minMuleVersion": "4.4.0",
+  "requiredProduct": "MULE_EE",
+  "classLoaderModelLoaderDescriptor": {
+    "id": "mule",
+    "attributes": {}
+  },
+  "bundleDescriptorLoader": {
+    "id": "mule",
+    "attributes": {}
+  }
 }
