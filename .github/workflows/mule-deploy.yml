@@ -10,6 +10,11 @@ on:
         required: true
         default: 'Manual re-deployment'
 
+permissions:
+  contents: read
+  statuses: write
+  pull-requests: write  # If you want to comment on PRs
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
