@@ -10,24 +10,26 @@ on:
         required: true
         default: 'Manual re-deployment'
 
-permissions:
-  contents: read
-  statuses: write
-  pull-requests: write  # If you want to comment on PRs
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v2
       
-    - name: Set up Java and Maven
+    - name: Set up JDK 8 and Maven 3.8.6
       uses: actions/setup-java@v2
       with:
         java-version: '8'
         distribution: 'adopt'
         maven-version: '3.8.6'
+        
+    - name: Cache Maven packages
+      uses: actions/cache@v2
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
         
     - name: Capture Deployment Output
       id: deploy
@@ -35,16 +37,11 @@ jobs:
         ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
         ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
       run: |
-        set +e
-        OUTPUT=$(mvn clean package deploy -DmuleDeploy \
+        OUTPUT=$(mvn -s settings.xml clean package deploy -DmuleDeploy \
         -Danypoint.username="${ANYPOINT_USERNAME}" \
         -Danypoint.password="${ANYPOINT_PASSWORD}" \
         -Dcloudhub.environment="Sandbox" 2>&1)
-        EXIT_CODE=$?
         echo "::set-output name=deploy_output::$OUTPUT"
-        echo "::set-output name=exit_code::$EXIT_CODE"
-        echo "$OUTPUT"
-        exit $EXIT_CODE
       continue-on-error: true
       
     - name: Process Deployment Result
